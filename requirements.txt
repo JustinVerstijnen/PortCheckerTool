@@ -1,4 +1,0 @@
-azure-functions
-dnspython
-requests
-python-whois
