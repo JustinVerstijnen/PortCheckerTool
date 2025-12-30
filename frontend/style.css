@@ -1,273 +1,248 @@
+:root{
+    --control-height: 44px;
+}
+
 /* =========================
    Base
    ========================= */
-
-* {
-  box-sizing: border-box;
-}
-
 body {
-  margin: 0;
-  font-family: "Segoe UI", Arial, sans-serif;
-  background: #f4f6f9;
-  color: #111;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f2f2f2;
+    margin: 0;
+    padding: 0;
 }
 
 .container {
-  max-width: 980px;
-  margin: 28px auto;
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 34px 34px 26px;
-  box-shadow: 0 12px 34px rgba(0,0,0,0.08);
+    position: relative;
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
 }
 
+/* =========================
+   Header
+   ========================= */
 .header {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 10px;
 }
 
 h1 {
-  text-align: center;
-  margin: 10px 0 8px;
-  font-size: 40px;
+    text-align: center;
+    margin: 10px 0;
 }
 
 .subtitle {
-  text-align: center;
-  color: #333;
-  margin-bottom: 22px;
+    text-align: center;
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 20px;
 }
 
 /* =========================
    Search box
    ========================= */
-
 .searchbox {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
-/* Host input (independent) */
+/* =========================
+   Inputs (independent)
+   ========================= */
+
+/* Host / IP input */
 .host-input {
-  height: 46px;
-  width: 320px;
-  max-width: 520px;
-  padding: 0 14px;
+    height: var(--control-height);
+    padding: 0 10px;
+    width: 300px;
 
-  font-size: 15px;
-  border-radius: 8px;
-  border: 1px solid #d0d0d0;
-  background: #ffffff;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
 }
 
-/* Port input (independent & fixed width) */
+/* Port input (fixed 100px) */
 .port-input {
-  height: 46px;
-  width: 100px;
-  min-width: 100px;
-  max-width: 100px;
+    height: var(--control-height);
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
 
-  padding: 0 10px;
-  text-align: center;
-  line-height: 46px;
+    padding: 0 8px;
+    text-align: center;
 
-  font-size: 15px;
-  border-radius: 8px;
-  border: 1px solid #d0d0d0;
-  background: #ffffff;
-}
-
-/* Shared focus */
-.host-input:focus,
-.port-input:focus {
-  outline: none;
-  border-color: #8EAFDA;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
 }
 
 /* Remove number spinners */
 .port-input::-webkit-outer-spin-button,
 .port-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+    -webkit-appearance: none;
+    margin: 0;
 }
 .port-input[type=number] {
-  -moz-appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+/* Focus (same as other tool) */
+.host-input:focus,
+.port-input:focus {
+    outline: none;
+    border-color: #8EAFDA;
 }
 
 /* =========================
-   Button
+   Buttons
    ========================= */
+button {
+    height: var(--control-height);
+    padding: 0 20px;
+    font-size: 16px;
 
-.primary-btn {
-  height: 46px;
-  padding: 0 20px;
-  border: 0;
-  border-radius: 10px;
-  cursor: pointer;
+    background-color: #8EAFDA;
+    color: #fff;
 
-  background: #8EAFDA;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 15px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    box-sizing: border-box;
 
-  transition: background-color 0.15s ease, transform 0.1s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.primary-btn:hover {
-  background: #7aa2d4;
-}
-
-.primary-btn:active {
-  transform: translateY(1px);
+button:hover {
+    filter: brightness(0.95);
 }
 
 /* =========================
    Presets
    ========================= */
-
 .preset-box {
-  margin-top: 14px;
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: #f8f9fb;
-  border: 1px solid #e6e6e6;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 6px;
 }
 
 .preset-title {
-  font-weight: 800;
-  margin-bottom: 12px;
+    font-weight: bold;
+    margin-bottom: 8px;
 }
 
 .preset-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .preset-btn {
-  border: 0;
-  border-radius: 999px;
-  padding: 9px 14px;
-  cursor: pointer;
+    height: var(--control-height);
+    padding: 0 14px;
 
-  font-weight: 700;
-  font-size: 14px;
+    background-color: #8EAFDA;
+    color: #fff;
 
-  background-color: #8EAFDA;
-  color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 4px;
 
-  transition: background-color 0.15s ease, transform 0.1s ease;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
 .preset-btn:hover {
-  background-color: #7aa2d4;
-}
-
-.preset-btn:active {
-  transform: translateY(1px);
+    filter: brightness(0.95);
 }
 
 .preset-btn small {
-  font-weight: 600;
-  opacity: 0.85;
-  margin-left: 6px;
+    font-weight: normal;
+    opacity: 0.85;
+    margin-left: 6px;
+}
+
+/* =========================
+   Spinner
+   ========================= */
+.spinner-container {
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    margin: 150px 0;
+}
+
+.spinner {
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #8EAFDA;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* =========================
    Results table
    ========================= */
-
 .table-wrapper {
-  margin-top: 18px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #ededed;
+    overflow-x: auto;
+    margin-top: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    background: #fff;
 }
 
 table {
-  width: 100%;
-  border-collapse: collapse;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
-thead th {
-  text-align: left;
-  padding: 14px 16px;
-  background: #f6f7f9;
-  font-weight: 800;
+thead {
+    background-color: #f8f9fa;
 }
 
-tbody td {
-  padding: 14px 16px;
-  border-top: 1px solid #f0f0f0;
-  vertical-align: top;
-}
-
-/* =========================
-   Loader
-   ========================= */
-
-.spinner-container {
-  margin-top: 18px;
-  display: flex;
-  justify-content: center;
-}
-
-.spinner {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 4px solid rgba(0,0,0,0.10);
-  border-top-color: rgba(0,0,0,0.35);
-  animation: spin 0.9s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+th, td {
+    padding: 15px;
+    text-align: left;
+    vertical-align: top;
+    word-break: break-word;
 }
 
 /* =========================
    Footer
    ========================= */
-
 .footer {
-  margin-top: 22px;
-  text-align: center;
-  font-size: 12px;
-  opacity: 0.75;
+    text-align: center;
+    font-size: 9px;
+    color: #777;
+    margin-top: 40px;
 }
 
 .footer a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* =========================
-   Mobile
-   ========================= */
-
-@media (max-width: 700px) {
-  .container {
-    padding: 22px 18px 18px;
-  }
-
-  h1 {
-    font-size: 32px;
-  }
-
-  .host-input {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .port-input {
-    width: 120px;
-    min-width: 120px;
-    max-width: 120px;
-  }
+    color: #777;
+    text-decoration: none;
 }
