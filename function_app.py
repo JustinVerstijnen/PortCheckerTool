@@ -5,10 +5,13 @@ import dns.resolver
 import dns.exception
 import requests
 import whois
+
+# NEW imports for port checking
 import socket
 import time
 import ipaddress
 
+# Function settings
 app = func.FunctionApp()
 
 def record_not_found(record_type, domain):
@@ -22,17 +25,27 @@ def _is_ip_literal(value: str) -> bool:
         return False
 
 def _is_ip_allowed(ip_str: str):
+    """Basic SSRF mitigation: block private/loopback/link-local/etc."""
     try:
         ip_obj = ipaddress.ip_address(ip_str)
     except ValueError:
         return False, "Invalid IP address"
 
-    if (
-        ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_link_local or
-        ip_obj.is_multicast or ip_obj.is_reserved or ip_obj.is_unspecified or
-        ip_str == "169.254.169.254"
-    ):
-        return False, "IP blocked"
+    if ip_obj.is_loopback:
+        return False, "Loopback IP blocked"
+    if ip_obj.is_private:
+        return False, "Private IP blocked"
+    if ip_obj.is_link_local:
+        return False, "Link-local IP blocked"
+    if ip_obj.is_multicast:
+        return False, "Multicast IP blocked"
+    if ip_obj.is_reserved:
+        return False, "Reserved IP blocked"
+    if ip_obj.is_unspecified:
+        return False, "Unspecified IP blocked"
+    if ip_str == "169.254.169.254":
+        return False, "Metadata IP blocked"
+
     return True, ""
 
 def _resolve_host_to_ips(host: str):
@@ -40,55 +53,267 @@ def _resolve_host_to_ips(host: str):
     try:
         infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
         for info in infos:
-            ips.add(info[4][0])
+            sockaddr = info[4]
+            ip = sockaddr[0]
+            ips.add(ip)
     except Exception:
         pass
     return sorted(list(ips))
 
-def _tcp_connect(ip, port, timeout):
+def _tcp_connect(ip: str, port: int, timeout_sec: float):
     start = time.perf_counter()
     try:
-        with socket.create_connection((ip, port), timeout=timeout):
-            latency = (time.perf_counter() - start) * 1000
-            return True, round(latency, 2), ""
+        with socket.create_connection((ip, port), timeout=timeout_sec):
+            latency_ms = (time.perf_counter() - start) * 1000.0
+            return True, round(latency_ms, 2), ""
     except Exception as e:
-        latency = (time.perf_counter() - start) * 1000
-        return False, round(latency, 2), str(e)
+        latency_ms = (time.perf_counter() - start) * 1000.0
+        return False, round(latency_ms, 2), str(e)
+
+@app.route(route="lookup")
+def dns_lookup(req: func.HttpRequest) -> func.HttpResponse:
+    domain = req.params.get('domain')
+    if not domain:
+        return func.HttpResponse("Please pass a domain on the query string", status_code=400)
+
+    results = {}
+
+    # MX lookup
+    try:
+        mx_records = dns.resolver.resolve(domain, 'MX')
+        mx_valid = len(mx_records) > 0
+        results['MX'] = {
+            "status": mx_valid,
+            "value": [str(r.exchange) for r in mx_records]
+        }
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+        results['MX'] = {"status": False, "value": record_not_found("MX", domain)}
+    except Exception as e:
+        results['MX'] = {"status": False, "value": str(e)}
+
+    # SPF lookup (TXT record)
+    try:
+        txt_records = dns.resolver.resolve(domain, 'TXT')
+        spf_records = []
+        for r in txt_records:
+            full_record = ''.join([b.decode('utf-8') for b in r.strings])
+            if full_record.startswith('v=spf1'):
+                spf_records.append(full_record)
+
+        if spf_records:
+            valid_spf = any('-all' in r for r in spf_records)
+            results['SPF'] = {"status": valid_spf, "value": spf_records}
+        else:
+            results['SPF'] = {"status": False, "value": record_not_found("SPF", domain)}
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+        results['SPF'] = {"status": False, "value": record_not_found("SPF", domain)}
+    except Exception as e:
+        results['SPF'] = {"status": False, "value": str(e)}
+
+    # DKIM lookup
+    try:
+        selectors = ['selector1', 'selector2']
+        dkim_results = []
+        dkim_valid = True
+
+        for selector in selectors:
+            dkim_domain = f"{selector}._domainkey.{domain}"
+            try:
+                dkim_records = dns.resolver.resolve(dkim_domain, 'TXT')
+                dkim_txt = [b.decode('utf-8') for r in dkim_records for b in r.strings]
+                dkim_results.append(f"{selector}: {dkim_txt[0]}")
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+                dkim_results.append(f"{selector}: DKIM record not found: {dkim_domain}")
+                dkim_valid = False
+            except Exception as e:
+                dkim_results.append(f"{selector}: {str(e)}")
+                dkim_valid = False
+
+        results['DKIM'] = {"status": dkim_valid, "value": dkim_results}
+    except Exception as e:
+        results['DKIM'] = {"status": False, "value": str(e)}
+
+    # DMARC lookup
+    try:
+        dmarc_domain = "_dmarc." + domain
+        dmarc_records = dns.resolver.resolve(dmarc_domain, 'TXT')
+        dmarc_txt = ["".join([b.decode("utf-8") for b in rr.strings]) for rr in dmarc_records]
+
+        valid_dmarc = any("p=reject" in record for record in dmarc_txt)
+        results['DMARC'] = {"status": valid_dmarc, "value": dmarc_txt}
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+        results['DMARC'] = {"status": False, "value": record_not_found("DMARC", dmarc_domain)}
+    except Exception as e:
+        results['DMARC'] = {"status": False, "value": str(e)}
+
+    # MTA-STS lookup with validation
+    try:
+        mta_sts_domain = "_mta-sts." + domain
+        try:
+            mta_sts_records = dns.resolver.resolve(mta_sts_domain, 'TXT')
+            mta_sts_dns_ok = True
+            mta_sts_txt_value = ''.join([b.decode('utf-8') for b in mta_sts_records[0].strings])
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+            mta_sts_dns_ok = False
+            results['MTA-STS'] = {"status": False, "value": record_not_found("MTA-STS", mta_sts_domain)}
+            mta_sts_dns_ok = None
+
+        if mta_sts_dns_ok is not None:
+            try:
+                well_known_url = f"https://mta-sts.{domain}/.well-known/mta-sts.txt"
+                fallback_url = f"https://{domain}/.well-known/mta-sts.txt"
+                r = requests.get(well_known_url, timeout=5)
+                mta_sts_http_ok = r.status_code == 200
+                if not mta_sts_http_ok:
+                    try:
+                        r2 = requests.get(fallback_url, timeout=5)
+                        mta_sts_http_ok = r2.status_code == 200
+                    except Exception:
+                        mta_sts_http_ok = False
+            except Exception:
+                mta_sts_http_ok = False
+
+            mta_sts_valid = mta_sts_dns_ok and mta_sts_http_ok
+            results['MTA-STS'] = {
+                "status": mta_sts_valid,
+                "value": [
+                    f"{mta_sts_txt_value}",
+                    f"DNS: {mta_sts_dns_ok}\t\tHTTP: {mta_sts_http_ok}"
+                ]
+            }
+    except Exception as e:
+        results['MTA-STS'] = {"status": False, "value": str(e)}
+
+    # DNSSEC lookup
+    try:
+        ds_records = dns.resolver.resolve(domain, 'DS')
+        dnssec_valid = len(ds_records) > 0
+        ds_values = [str(r) for r in ds_records]
+        results['DNSSEC'] = {"status": dnssec_valid, "value": ds_values}
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+        results['DNSSEC'] = {"status": False, "value": record_not_found("DNSSEC", domain)}
+    except Exception as e:
+        results['DNSSEC'] = {"status": False, "value": str(e)}
+
+    # NS lookup
+    try:
+        ns_records = dns.resolver.resolve(domain, 'NS')
+        ns_list = [str(r.target) for r in ns_records]
+        results['NS'] = ns_list
+    except Exception:
+        results['NS'] = []
+
+    # WHOIS lookup
+    try:
+        whois_data = whois.whois(domain)
+        results['WHOIS'] = {
+            "registrar": whois_data.registrar,
+            "creation_date": str(whois_data.creation_date)
+        }
+    except Exception as e:
+        results['WHOIS'] = {"error": str(e)}
+
+    return func.HttpResponse(json.dumps(results), mimetype="application/json")
 
 @app.route(route="portcheck")
-def portcheck(req: func.HttpRequest) -> func.HttpResponse:
+def port_check(req: func.HttpRequest) -> func.HttpResponse:
     host = (req.params.get("host") or "").strip()
     port_raw = (req.params.get("port") or "").strip()
+    timeout_raw = (req.params.get("timeout") or "").strip()
 
-    if not host or not port_raw:
-        return func.HttpResponse("host and port required", status_code=400)
+    if not host:
+        return func.HttpResponse("Please pass a host (IP or hostname) on the query string", status_code=400)
+    if not port_raw:
+        return func.HttpResponse("Please pass a port on the query string", status_code=400)
 
     try:
         port = int(port_raw)
         if port < 1 or port > 65535:
             raise ValueError()
     except ValueError:
-        return func.HttpResponse("invalid port", status_code=400)
+        return func.HttpResponse("Port must be an integer between 1 and 65535", status_code=400)
+
+    try:
+        timeout_sec = float(timeout_raw) if timeout_raw else 3.0
+        if timeout_sec <= 0 or timeout_sec > 15:
+            timeout_sec = 3.0
+    except ValueError:
+        timeout_sec = 3.0
 
     ips = [host] if _is_ip_literal(host) else _resolve_host_to_ips(host)
-    if not ips:
-        return func.HttpResponse(json.dumps({"open": False, "error": "resolution failed"}),
-                                 mimetype="application/json")
 
-    results = []
+    if not ips:
+        return func.HttpResponse(
+            json.dumps({
+                "ok": False,
+                "host": host,
+                "port": port,
+                "error": "Unable to resolve hostname",
+                "resolved_ips": []
+            }),
+            mimetype="application/json",
+            status_code=200
+        )
+
+    allowed_ips = []
+    blocked = []
     for ip in ips:
         allowed, reason = _is_ip_allowed(ip)
-        if not allowed:
-            results.append({"ip": ip, "blocked": reason})
-            continue
-        ok, latency, err = _tcp_connect(ip, port, 3)
-        results.append({"ip": ip, "open": ok, "latency_ms": latency, "error": err})
+        if allowed:
+            allowed_ips.append(ip)
+        else:
+            blocked.append({"ip": ip, "reason": reason})
 
-        if ok:
-            return func.HttpResponse(json.dumps({
-                "host": host, "port": port, "open": True, "attempts": results
-            }), mimetype="application/json")
+    if not allowed_ips:
+        return func.HttpResponse(
+            json.dumps({
+                "ok": False,
+                "host": host,
+                "port": port,
+                "error": "All resolved IPs are blocked",
+                "resolved_ips": ips,
+                "blocked": blocked
+            }),
+            mimetype="application/json",
+            status_code=200
+        )
 
-    return func.HttpResponse(json.dumps({
-        "host": host, "port": port, "open": False, "attempts": results
-    }), mimetype="application/json")
+    attempts = []
+    for ip in allowed_ips:
+        is_open, latency_ms, err = _tcp_connect(ip, port, timeout_sec)
+        attempts.append({
+            "ip": ip,
+            "open": is_open,
+            "latency_ms": latency_ms,
+            "error": err if not is_open else ""
+        })
+        if is_open:
+            return func.HttpResponse(
+                json.dumps({
+                    "ok": True,
+                    "host": host,
+                    "port": port,
+                    "open": True,
+                    "timeout_sec": timeout_sec,
+                    "resolved_ips": ips,
+                    "blocked": blocked,
+                    "attempts": attempts
+                }),
+                mimetype="application/json",
+                status_code=200
+            )
+
+    return func.HttpResponse(
+        json.dumps({
+            "ok": True,
+            "host": host,
+            "port": port,
+            "open": False,
+            "timeout_sec": timeout_sec,
+            "resolved_ips": ips,
+            "blocked": blocked,
+            "attempts": attempts
+        }),
+        mimetype="application/json",
+        status_code=200
+    )
