@@ -6,7 +6,7 @@ import dns.exception
 import requests
 import whois
 
-# NEW imports for port checking
+# Port checker imports
 import socket
 import time
 import ipaddress
@@ -16,59 +16,6 @@ app = func.FunctionApp()
 
 def record_not_found(record_type, domain):
     return f"{record_type} record not found: {domain}"
-
-def _is_ip_literal(value: str) -> bool:
-    try:
-        ipaddress.ip_address(value)
-        return True
-    except ValueError:
-        return False
-
-def _is_ip_allowed(ip_str: str):
-    """Basic SSRF mitigation: block private/loopback/link-local/etc."""
-    try:
-        ip_obj = ipaddress.ip_address(ip_str)
-    except ValueError:
-        return False, "Invalid IP address"
-
-    if ip_obj.is_loopback:
-        return False, "Loopback IP blocked"
-    if ip_obj.is_private:
-        return False, "Private IP blocked"
-    if ip_obj.is_link_local:
-        return False, "Link-local IP blocked"
-    if ip_obj.is_multicast:
-        return False, "Multicast IP blocked"
-    if ip_obj.is_reserved:
-        return False, "Reserved IP blocked"
-    if ip_obj.is_unspecified:
-        return False, "Unspecified IP blocked"
-    if ip_str == "169.254.169.254":
-        return False, "Metadata IP blocked"
-
-    return True, ""
-
-def _resolve_host_to_ips(host: str):
-    ips = set()
-    try:
-        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
-        for info in infos:
-            sockaddr = info[4]
-            ip = sockaddr[0]
-            ips.add(ip)
-    except Exception:
-        pass
-    return sorted(list(ips))
-
-def _tcp_connect(ip: str, port: int, timeout_sec: float):
-    start = time.perf_counter()
-    try:
-        with socket.create_connection((ip, port), timeout=timeout_sec):
-            latency_ms = (time.perf_counter() - start) * 1000.0
-            return True, round(latency_ms, 2), ""
-    except Exception as e:
-        latency_ms = (time.perf_counter() - start) * 1000.0
-        return False, round(latency_ms, 2), str(e)
 
 @app.route(route="lookup")
 def dns_lookup(req: func.HttpRequest) -> func.HttpResponse:
@@ -152,11 +99,11 @@ def dns_lookup(req: func.HttpRequest) -> func.HttpResponse:
         try:
             mta_sts_records = dns.resolver.resolve(mta_sts_domain, 'TXT')
             mta_sts_dns_ok = True
-            mta_sts_txt_value = ''.join([b.decode('utf-8') for b in mta_sts_records[0].strings])
+            mta_sts_txt_value = ''.join([b.decode('utf-8') for b in mta_sts_records[0].strings])  # Get the TXT record value
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
             mta_sts_dns_ok = False
             results['MTA-STS'] = {"status": False, "value": record_not_found("MTA-STS", mta_sts_domain)}
-            mta_sts_dns_ok = None
+            mta_sts_dns_ok = None  # Stop further processing
 
         if mta_sts_dns_ok is not None:
             try:
@@ -168,11 +115,12 @@ def dns_lookup(req: func.HttpRequest) -> func.HttpResponse:
                     try:
                         r2 = requests.get(fallback_url, timeout=5)
                         mta_sts_http_ok = r2.status_code == 200
-                    except Exception:
+                    except:
                         mta_sts_http_ok = False
-            except Exception:
+            except:
                 mta_sts_http_ok = False
 
+            # STRICT VALIDATION: both must succeed
             mta_sts_valid = mta_sts_dns_ok and mta_sts_http_ok
             results['MTA-STS'] = {
                 "status": mta_sts_valid,
@@ -200,7 +148,7 @@ def dns_lookup(req: func.HttpRequest) -> func.HttpResponse:
         ns_records = dns.resolver.resolve(domain, 'NS')
         ns_list = [str(r.target) for r in ns_records]
         results['NS'] = ns_list
-    except Exception:
+    except:
         results['NS'] = []
 
     # WHOIS lookup
@@ -214,6 +162,64 @@ def dns_lookup(req: func.HttpRequest) -> func.HttpResponse:
         results['WHOIS'] = {"error": str(e)}
 
     return func.HttpResponse(json.dumps(results), mimetype="application/json")
+
+
+# ==========================
+# Port checker endpoint
+# ==========================
+def _is_ip_literal(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+def _is_ip_allowed(ip_str: str):
+    """
+    Blocks loopback/private/link-local/multicast/reserved ranges to reduce SSRF/internal scanning risk.
+    """
+    try:
+        ip_obj = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False, "Invalid IP address"
+
+    if ip_obj.is_loopback:
+        return False, "Loopback IP blocked"
+    if ip_obj.is_private:
+        return False, "Private IP blocked"
+    if ip_obj.is_link_local:
+        return False, "Link-local IP blocked"
+    if ip_obj.is_multicast:
+        return False, "Multicast IP blocked"
+    if ip_obj.is_reserved:
+        return False, "Reserved IP blocked"
+    if ip_obj.is_unspecified:
+        return False, "Unspecified IP blocked"
+    if ip_str == "169.254.169.254":
+        return False, "Metadata IP blocked"
+
+    return True, ""
+
+def _resolve_host_to_ips(host: str):
+    ips = set()
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+        for info in infos:
+            sockaddr = info[4]
+            ips.add(sockaddr[0])
+    except Exception:
+        pass
+    return sorted(list(ips))
+
+def _tcp_connect(ip: str, port: int, timeout_sec: float):
+    start = time.perf_counter()
+    try:
+        with socket.create_connection((ip, port), timeout=timeout_sec):
+            latency_ms = (time.perf_counter() - start) * 1000.0
+            return True, round(latency_ms, 2), ""
+    except Exception as e:
+        latency_ms = (time.perf_counter() - start) * 1000.0
+        return False, round(latency_ms, 2), str(e)
 
 @app.route(route="portcheck")
 def port_check(req: func.HttpRequest) -> func.HttpResponse:
@@ -244,13 +250,7 @@ def port_check(req: func.HttpRequest) -> func.HttpResponse:
 
     if not ips:
         return func.HttpResponse(
-            json.dumps({
-                "ok": False,
-                "host": host,
-                "port": port,
-                "error": "Unable to resolve hostname",
-                "resolved_ips": []
-            }),
+            json.dumps({"ok": False, "host": host, "port": port, "error": "Unable to resolve hostname", "resolved_ips": []}),
             mimetype="application/json",
             status_code=200
         )
@@ -266,14 +266,7 @@ def port_check(req: func.HttpRequest) -> func.HttpResponse:
 
     if not allowed_ips:
         return func.HttpResponse(
-            json.dumps({
-                "ok": False,
-                "host": host,
-                "port": port,
-                "error": "All resolved IPs are blocked",
-                "resolved_ips": ips,
-                "blocked": blocked
-            }),
+            json.dumps({"ok": False, "host": host, "port": port, "error": "All resolved IPs are blocked", "resolved_ips": ips, "blocked": blocked}),
             mimetype="application/json",
             status_code=200
         )
@@ -281,39 +274,16 @@ def port_check(req: func.HttpRequest) -> func.HttpResponse:
     attempts = []
     for ip in allowed_ips:
         is_open, latency_ms, err = _tcp_connect(ip, port, timeout_sec)
-        attempts.append({
-            "ip": ip,
-            "open": is_open,
-            "latency_ms": latency_ms,
-            "error": err if not is_open else ""
-        })
+        attempts.append({"ip": ip, "open": is_open, "latency_ms": latency_ms, "error": err if not is_open else ""})
         if is_open:
             return func.HttpResponse(
-                json.dumps({
-                    "ok": True,
-                    "host": host,
-                    "port": port,
-                    "open": True,
-                    "timeout_sec": timeout_sec,
-                    "resolved_ips": ips,
-                    "blocked": blocked,
-                    "attempts": attempts
-                }),
+                json.dumps({"ok": True, "host": host, "port": port, "open": True, "timeout_sec": timeout_sec, "resolved_ips": ips, "blocked": blocked, "attempts": attempts}),
                 mimetype="application/json",
                 status_code=200
             )
 
     return func.HttpResponse(
-        json.dumps({
-            "ok": True,
-            "host": host,
-            "port": port,
-            "open": False,
-            "timeout_sec": timeout_sec,
-            "resolved_ips": ips,
-            "blocked": blocked,
-            "attempts": attempts
-        }),
+        json.dumps({"ok": True, "host": host, "port": port, "open": False, "timeout_sec": timeout_sec, "resolved_ips": ips, "blocked": blocked, "attempts": attempts}),
         mimetype="application/json",
         status_code=200
     )
