@@ -150,7 +150,7 @@ async function checkPort() {
 
     addRow(tbody, "Host", data.host ?? host);
     addRow(tbody, "Port", String(data.port ?? port));
-    addRow(tbody, "Open", data.open === true ? "✅ Yes" : "❌ No");
+    addRow(tbody, "Open", data.open === true ? "✅ Yes, the checked port is opened to the internet." : "❌ No, the checked port could not be found.");
 
     if (Array.isArray(data.resolved_ips)) addRow(tbody, "Resolved IPs", data.resolved_ips.join(", "));
     if (Array.isArray(data.blocked) && data.blocked.length) {
