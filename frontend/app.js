@@ -9,14 +9,14 @@ const PRESETS = [
   { port: 587, label: "SMTP Submission" },
   { port: 465, label: "SMTPS" },
   { port: 53, label: "DNS" },
-  { port: 110, label: "POP3" },
-  { port: 995, label: "POP3S" },
   { port: 143, label: "IMAP" },
   { port: 993, label: "IMAPS" },
+  { port: 1433, label: "MS SQL" },
   { port: 3389, label: "RDP" },
   { port: 3306, label: "MySQL" },
   { port: 5432, label: "PostgreSQL" },
   { port: 6379, label: "Redis" },
+  { port: 25565, label: "Minecraft" },
   { port: 27017, label: "MongoDB" },
 ];
 
