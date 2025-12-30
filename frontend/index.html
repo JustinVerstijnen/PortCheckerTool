@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="description" content="Open port checker - check if a TCP port is reachable on a host or IP.">
+  <title>Open Port Checker - justinverstijnen.nl</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="https://justinverstijnen.nl" target="_blank">
+        <img src="https://justinverstijnen.nl/wp-content/uploads/2025/04/cropped-Logo-2.0-Transparant.png" alt="Logo" width="50" height="50">
+      </a>
+    </div>
+
+    <h1>Open Port Checker - justinverstijnen.nl</h1>
+    <div class="subtitle" style="font-family:'Segoe UI', sans-serif;">
+      Check if a TCP port is reachable on a hostname or IP address.
+    </div>
+
+    <div class="searchbox">
+      <input type="text" id="hostInput" placeholder="example.com or 1.2.3.4">
+      <input type="number" id="portInput" placeholder="Port (1-65535)" min="1" max="65535" class="port-input">
+      <button id="checkPortBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="white" width="18" height="18" style="vertical-align:middle;margin-right:8px">
+          <path d="M505 442.7L405.3 343c-4.5-4.5-10.6-7-17-7H372c27.6-35.3 44-79.7 44-128C416 93.1 322.9 0 208 0S0 93.1 0 208s93.1 208 208 208c48.3 0 92.7-16.4 128-44v16.3c0 6.4 2.5 12.5 7 17l99.7 99.7c9.4 9.4 24.6 9.4 33.9 0l28.3-28.3c9.4-9.4 9.4-24.6 .1-34zM208 336c-70.7 0-128-57.2-128-128 0-70.7 57.2-128 128-128 70.7 0 128 57.2 128 128 0 70.7-57.2 128-128 128z"/>
+        </svg>
+        Check
+      </button>
+      <a class="bulk-btn" href="index.html" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">
+        Back to DNS tool
+      </a>
+    </div>
+
+    <div id="loader" class="spinner-container" style="display:none;">
+      <div class="spinner"></div>
+    </div>
+
+    <div id="resultsSection" style="display:none;">
+      <div class="table-wrapper">
+        <table id="resultTable">
+          <thead>
+            <tr><th>Field</th><th>Value</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a href="index.html">&copy; <span id="copyright-year">2025</span> Tools by Justin Verstijnen. Back to DNS tool.</a>
+    </div>
+
+    <script>
+      document.getElementById('copyright-year').textContent = new Date().getFullYear();
+    </script>
+    <script src="port.js"></script>
+  </div>
+</body>
+</html>
