@@ -2,9 +2,6 @@
     --control-height: 44px;
 }
 
-/* =========================
-   Base
-   ========================= */
 body {
     font-family: 'Segoe UI', sans-serif;
     background-color: #f2f2f2;
@@ -22,9 +19,6 @@ body {
     box-shadow: 0 0 15px rgba(0,0,0,0.1);
 }
 
-/* =========================
-   Header
-   ========================= */
 .header {
     display: flex;
     align-items: center;
@@ -45,9 +39,6 @@ h1 {
     margin-bottom: 20px;
 }
 
-/* =========================
-   Search box
-   ========================= */
 .searchbox {
     display: flex;
     align-items: center;
@@ -56,11 +47,6 @@ h1 {
     margin-bottom: 20px;
 }
 
-/* =========================
-   Inputs (independent)
-   ========================= */
-
-/* Host / IP input */
 .host-input {
     height: var(--control-height);
     padding: 0 10px;
@@ -72,7 +58,6 @@ h1 {
     box-sizing: border-box;
 }
 
-/* Port input (fixed 100px) */
 .port-input {
     height: var(--control-height);
     width: 100px;
@@ -88,7 +73,6 @@ h1 {
     box-sizing: border-box;
 }
 
-/* Remove number spinners */
 .port-input::-webkit-outer-spin-button,
 .port-input::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -98,28 +82,21 @@ h1 {
     -moz-appearance: textfield;
 }
 
-/* Focus (same as other tool) */
 .host-input:focus,
 .port-input:focus {
     outline: none;
     border-color: #8EAFDA;
 }
 
-/* =========================
-   Buttons
-   ========================= */
 button {
     height: var(--control-height);
     padding: 0 20px;
     font-size: 16px;
-
     background-color: #8EAFDA;
     color: #fff;
-
     border: 1px solid transparent;
     border-radius: 4px;
     box-sizing: border-box;
-
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -130,9 +107,6 @@ button:hover {
     filter: brightness(0.95);
 }
 
-/* =========================
-   Presets
-   ========================= */
 .preset-box {
     margin-top: 10px;
     margin-bottom: 10px;
@@ -156,13 +130,10 @@ button:hover {
 .preset-btn {
     height: var(--control-height);
     padding: 0 14px;
-
     background-color: #8EAFDA;
     color: #fff;
-
     border: 1px solid transparent;
     border-radius: 4px;
-
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -178,9 +149,6 @@ button:hover {
     margin-left: 6px;
 }
 
-/* =========================
-   Spinner
-   ========================= */
 .spinner-container {
     position: relative;
     left: 50%;
@@ -204,9 +172,6 @@ button:hover {
     100% { transform: rotate(360deg); }
 }
 
-/* =========================
-   Results table
-   ========================= */
 .table-wrapper {
     overflow-x: auto;
     margin-top: 20px;
@@ -232,9 +197,6 @@ th, td {
     word-break: break-word;
 }
 
-/* =========================
-   Footer
-   ========================= */
 .footer {
     text-align: center;
     font-size: 9px;
@@ -245,4 +207,25 @@ th, td {
 .footer a {
     color: #777;
     text-decoration: none;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("https://justinverstijnen.nl/wp-content/uploads/2026/01/Tool_Background_Blurred.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.69;
+    z-index: -1;
+}
+
+body {
+    position: relative;
+    min-height: 100vh;
+}
+
+.container {
+    background: rgba(255, 255, 255, 0.85);
 }
